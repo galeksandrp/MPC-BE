@@ -23,6 +23,6 @@ ECHO ERROR: Please define MPCBE_MSYS environment variable
 EXIT /B
 
 :VarOk
-SET PATH=%PATH%;%MPCBE_MSYS%\bin
+SET PATH=%PATH%;%MPCBE_MSYS%\bin;%MPCBE_MINGW%\bin
 
 yasm.exe %*
