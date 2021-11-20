@@ -1,0 +1,52 @@
+name: MSBuild
+
+on: [push]
+
+env:
+  # Path to the solution file relative to the root of the project.
+  SOLUTION_FILE_PATH: .
+
+  # Configuration type to build.
+  # You can convert this to a build matrix if you need coverage of multiple configuration types.
+  # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      MPCBE_MSYS: C:\msys64
+      MPCBE_MINGW: C:\msys64\mingw64
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+        fetch-depth: 0
+    - run: del environments.bat
+
+    - uses: msys2/setup-msys2@v2
+      with:
+        release: false
+        update: true
+        install: >-
+          base-devel
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-yasm
+          mingw-w64-cross-binutils
+
+    - run: iwr -UseBasicParsing -OutFile "$env:USERPROFILE\msys.7z" "$('https://mpc-be.org/MSYS/' + ((iwr -UseBasicParsing 'https://mpc-be.org/MSYS/').Links.href | ? {$_ -like '*.7z'})[-1])"
+    - run: 7z x -o"$env:SYSTEMDRIVE" "$env:USERPROFILE\msys.7z" mingw\mpcbe_libs mingw\lib\gcc\x86_64-w64-mingw32
+    - run: mkdir "$env:SYSTEMDRIVE\mingw\bin"
+    - run: echo '%SYSTEMDRIVE%\msys64\mingw64\bin\gcc %*' >> "$env:SYSTEMDRIVE\mingw\bin\gcc.bat"
+
+    - run: .\configure.ps1 setPath ; .\update_gcc.bat
+    - run: .\configure.ps1 setPath ; $env:MPCBE_MINGW = "$env:SYSTEMDRIVE\mingw" ; .\update_gcc.bat
+    - run: .\configure.ps1 setPath ; .\build.bat Build x64 Packages
+
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: mpc-be_x64
+        path: _bin\*.exe
